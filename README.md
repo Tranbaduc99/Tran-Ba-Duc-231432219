@@ -35,4 +35,3 @@ Hệ thống giám sát và điều khiển bể nước sử dụng ESP32.
 - index.html: Giao diện Web.
 - README.md: Tài liệu dự án.
 
-- Mô phỏng Wokwi: [Xem mô phỏng tại đây](https://wokwi.com/projects/480012039674157057)
