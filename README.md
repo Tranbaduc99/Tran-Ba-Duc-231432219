@@ -28,10 +28,5 @@ Hệ thống giám sát và điều khiển bể nước sử dụng ESP32.
 - Điều khiển máy bơm và van thoát ở chế độ MANUAL.
 - Tự động điều khiển theo mực nước ở chế độ AUTO.
 
-## 5. Cấu trúc dự án
-- sketch.ino: Chương trình ESP32.
-- diagram.json: Sơ đồ mạch Wokwi.
-- libraries.txt: Danh sách thư viện.
-- index.html: Giao diện Web.
-- README.md: Tài liệu dự án.
+
 
