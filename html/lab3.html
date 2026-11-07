@@ -1,0 +1,354 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aquarium Monitoring</title>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 25px;
+  background: #eef3f8;
+  color: #243247;
+}
+
+.container {
+  max-width: 1000px;
+  margin: auto;
+}
+
+h1 {
+  text-align: center;
+  color: #1261a0;
+}
+
+.status {
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+.cards, .charts, .controls {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.card, .panel {
+  background: white;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 3px 12px #00000012;
+}
+
+.card {
+  text-align: center;
+}
+
+.value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #0879c9;
+  margin-top: 12px;
+}
+
+.panel h3 {
+  margin-top: 0;
+}
+
+button {
+  border: none;
+  padding: 12px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+  font-weight: bold;
+  margin: 5px;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.on {
+  background: #16a05d;
+}
+
+.off {
+  background: #d94b4b;
+}
+
+.mode {
+  background: #1261a0;
+}
+
+.device-status {
+  font-weight: bold;
+  margin: 12px 0;
+}
+
+@media(max-width: 650px) {
+  .cards, .charts, .controls {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>HỆ THỐNG GIÁM SÁT BỂ NƯỚC</h1>
+
+<div class="status" id="connection">
+  Đang kết nối MQTT...
+</div>
+
+<div class="cards">
+  <div class="card">
+    <h3>MỰC NƯỚC</h3>
+    <div class="value" id="waterLevel">-- m</div>
+  </div>
+
+  <div class="card">
+    <h3>NHIỆT ĐỘ BỂ</h3>
+    <div class="value" id="temperature">-- °C</div>
+  </div>
+</div>
+
+<div class="charts">
+  <div class="panel">
+    <h3>Biểu đồ mực nước</h3>
+    <canvas id="waterChart"></canvas>
+  </div>
+
+  <div class="panel">
+    <h3>Biểu đồ nhiệt độ</h3>
+    <canvas id="tempChart"></canvas>
+  </div>
+</div>
+
+<div class="panel">
+  <h3>CHẾ ĐỘ ĐIỀU KHIỂN</h3>
+  <button class="mode" onclick="setMode('AUTO')">AUTO</button>
+  <button class="mode" onclick="setMode('MANUAL')">MANUAL</button>
+  <p id="modeStatus">Chế độ: AUTO (mặc định)</p>
+</div>
+
+<div class="controls">
+  <div class="panel">
+    <h3>MÁY BƠM NƯỚC VÀO</h3>
+    <p class="device-status" id="pumpStatus">Trạng thái: Chưa có dữ liệu</p>
+    <button class="on" id="pumpOn" onclick="controlDevice('pump','ON')" disabled>BẬT BƠM</button>
+    <button class="off" id="pumpOff" onclick="controlDevice('pump','OFF')" disabled>TẮT BƠM</button>
+  </div>
+
+  <div class="panel">
+    <h3>VAN THOÁT NƯỚC RA</h3>
+    <p class="device-status" id="valveStatus">Trạng thái: Chưa có dữ liệu</p>
+    <button class="on" id="valveOn" onclick="controlDevice('valve','ON')" disabled>MỞ VAN</button>
+    <button class="off" id="valveOff" onclick="controlDevice('valve','OFF')" disabled>ĐÓNG VAN</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+// MQTT BROKER
+const broker = "wss://broker.hivemq.com:8884/mqtt";
+
+const topicData = "aquarium/data";
+const topicPump = "aquarium/pump/set";
+const topicValve = "aquarium/valve/set";
+const topicMode = "aquarium/mode/set";
+
+const topicPumpStatus = "aquarium/pump/status";
+const topicValveStatus = "aquarium/valve/status";
+
+let currentMode = "AUTO";
+
+const client = mqtt.connect(broker);
+
+client.on("connect", function() {
+  document.getElementById("connection").innerText =
+    "Đã kết nối MQTT Broker";
+
+  client.subscribe([
+    topicData,
+    topicPumpStatus,
+    topicValveStatus
+  ]);
+
+});
+
+client.on("offline", function() {
+  document.getElementById("connection").innerText =
+    "MQTT mất kết nối";
+});
+
+client.on("error", function(error) {
+  console.log("MQTT Error:", error);
+});
+
+// NHAN DU LIEU TU BROKER
+client.on("message", function(topic, message) {
+
+  const value = message.toString();
+
+  // DU LIEU CAM BIEN
+  if (topic === topicData) {
+    try {
+      const data = JSON.parse(value);
+
+      document.getElementById("waterLevel").innerText =
+        data.waterLevel.toFixed(2) + " m";
+
+      document.getElementById("temperature").innerText =
+        data.temperature.toFixed(2) + " °C";
+
+      updateCharts(data.waterLevel, data.temperature);
+
+    } catch(error) {
+      console.log("Loi doc JSON:", error);
+    }
+  }
+
+  // TRANG THAI MAY BOM
+  if (topic === topicPumpStatus) {
+    document.getElementById("pumpStatus").innerText =
+      value === "ON"
+      ? "Trạng thái: MÁY BƠM ĐANG BẬT"
+      : "Trạng thái: MÁY BƠM ĐANG TẮT";
+  }
+
+  // TRANG THAI VAN
+  if (topic === topicValveStatus) {
+    document.getElementById("valveStatus").innerText =
+      value === "ON"
+      ? "Trạng thái: VAN ĐANG MỞ"
+      : "Trạng thái: VAN ĐANG ĐÓNG";
+  }
+
+});
+
+// CHART
+const labels = [];
+const waterValues = [];
+const tempValues = [];
+
+const waterChart = new Chart(
+  document.getElementById("waterChart"),
+  {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Mực nước (m)",
+        data: waterValues,
+        borderWidth: 2,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false
+    }
+  }
+);
+
+const tempChart = new Chart(
+  document.getElementById("tempChart"),
+  {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: "Nhiệt độ (°C)",
+        data: tempValues,
+        borderWidth: 2,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false
+    }
+  }
+);
+
+function updateCharts(water, temp) {
+  const time = new Date().toLocaleTimeString();
+
+  labels.push(time);
+  waterValues.push(water);
+  tempValues.push(temp);
+
+  if (labels.length > 20) {
+    labels.shift();
+    waterValues.shift();
+    tempValues.shift();
+  }
+
+  waterChart.update();
+  tempChart.data.labels = labels;
+  tempChart.update();
+}
+
+// CHON CHE DO
+function setMode(mode) {
+  if (!client.connected) {
+    alert("Chưa kết nối MQTT!");
+    return;
+  }
+
+  client.publish(topicMode, mode);
+  currentMode = mode;
+
+  document.getElementById("modeStatus").innerText =
+    "Chế độ đã gửi: " + mode +
+    " (đang chờ ESP32 xử lý)";
+
+  const manual = mode === "MANUAL";
+
+  document.getElementById("pumpOn").disabled = !manual;
+  document.getElementById("pumpOff").disabled = !manual;
+  document.getElementById("valveOn").disabled = !manual;
+  document.getElementById("valveOff").disabled = !manual;
+}
+
+// DIEU KHIEN BOM VA VAN
+function controlDevice(device, value) {
+  if (currentMode !== "MANUAL") {
+    alert("Hãy chuyển sang MANUAL trước!");
+    return;
+  }
+
+  if (!client.connected) {
+    alert("Chưa kết nối MQTT!");
+    return;
+  }
+
+  if (device === "pump") {
+    client.publish(topicPump, value);
+  }
+
+  if (device === "valve") {
+    client.publish(topicValve, value);
+  }
+}
+</script>
+
+</body>
+</html>
