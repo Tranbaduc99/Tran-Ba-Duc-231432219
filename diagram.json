@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "author": "ESP32 Aquarium Monitoring",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "ultra",
+      "top": -190.5,
+      "left": 111.1,
+      "attrs": { "distance": "100" }
+    },
+    {
+      "type": "wokwi-ds18b20",
+      "id": "temp",
+      "top": 200,
+      "left": -250,
+      "attrs": { "temperature": "28.5" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "pump",
+      "top": -99.6,
+      "left": -370.6,
+      "attrs": { "color": "green" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 32.2,
+      "left": -269.65,
+      "rotate": 270,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "valve",
+      "top": 15.6,
+      "left": -370.6,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": 119.45,
+      "left": -279.8,
+      "rotate": 180,
+      "attrs": { "value": "220" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 378.35,
+      "left": -230.4,
+      "attrs": { "value": "4700" }
+    }
+  ],
+  "connections": [
+    [ "esp:VIN", "ultra:VCC", "red", [] ],
+    [ "esp:GND.1", "ultra:GND", "black", [] ],
+    [ "esp:5", "ultra:TRIG", "green", [] ],
+    [ "esp:18", "ultra:ECHO", "blue", [] ],
+    [ "esp:3V3", "temp:VCC", "red", [ "h-62.21", "v355.2", "h-105.6", "v-134.87" ] ],
+    [ "esp:GND.1", "temp:GND", "black", [ "h-359.81", "v230.4", "h110.72" ] ],
+    [ "esp:4", "temp:DQ", "green", [ "h24.04", "v172.8", "h-359.68" ] ],
+    [ "esp:26", "r2:1", "green", [] ],
+    [ "r2:2", "pump:A", "green", [] ],
+    [ "esp:27", "r3:1", "green", [] ],
+    [ "r3:2", "valve:A", "green", [ "h-66", "v-67.2" ] ],
+    [ "r1:1", "temp:DQ", "green", [ "h0" ] ],
+    [ "esp:3V3", "r1:2", "red", [ "h-62.21", "v355.2" ] ],
+    [ "esp:GND.1", "valve:C", "black", [ "h0" ] ],
+    [ "valve:C", "pump:C", "green", [ "v0" ] ],
+    [ "ultra:VCC", "esp:3V3", "red", [ "v0", "h-172.8" ] ]
+  ],
+  "dependencies": {}
+}
